@@ -1,1 +1,712 @@
-hello world!
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Random timer with configurable intervals">
+  <title>Random Timer</title>
+  <style>
+    /* CSS Variables for theming */
+    :root {
+      --primary-color: #3b82f6;
+      --primary-hover: #2563eb;
+      --success-color: #10b981;
+      --warning-color: #f59e0b;
+      --danger-color: #ef4444;
+      --text-primary: #1f2937;
+      --text-secondary: #6b7280;
+      --bg-primary: #ffffff;
+      --bg-secondary: #f3f4f6;
+      --border-color: #e5e7eb;
+      --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    }
+
+    /* Reset and base styles */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1rem;
+      color: var(--text-primary);
+    }
+
+    .container {
+      background: var(--bg-primary);
+      border-radius: 1.5rem;
+      box-shadow: var(--shadow-lg);
+      padding: 2rem;
+      width: 100%;
+      max-width: 500px;
+    }
+
+    h1 {
+      text-align: center;
+      margin-bottom: 2rem;
+      font-size: 1.75rem;
+      color: var(--text-primary);
+    }
+
+    /* Timer display */
+    .timer-display {
+      background: var(--bg-secondary);
+      border-radius: 1rem;
+      padding: 3rem 2rem;
+      text-align: center;
+      margin-bottom: 2rem;
+      transition: all 0.3s ease;
+    }
+
+    .timer-display.running {
+      background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+      border: 2px solid var(--primary-color);
+    }
+
+    .timer-display.completed {
+      background: var(--success-color);
+      animation: pulse 0.5s ease-in-out 3;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        transform: scale(1);
+      }
+      50% {
+        transform: scale(1.05);
+      }
+    }
+
+    .timer-text {
+      font-size: 4rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: 0.1em;
+      color: var(--text-primary);
+    }
+
+    .timer-display.completed .timer-text {
+      color: white;
+    }
+
+    /* Button styles */
+    .btn {
+      width: 100%;
+      padding: 1rem 2rem;
+      font-size: 1.125rem;
+      font-weight: 600;
+      border: none;
+      border-radius: 0.75rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: var(--shadow);
+      min-height: 44px; /* WCAG touch target size */
+    }
+
+    .btn:hover {
+      transform: translateY(-2px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn:focus {
+      outline: 3px solid var(--primary-color);
+      outline-offset: 2px;
+    }
+
+    .btn-primary {
+      background: var(--primary-color);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    /* Configuration section */
+    .config-section {
+      margin-top: 2rem;
+      padding-top: 2rem;
+      border-top: 2px solid var(--border-color);
+    }
+
+    .config-toggle {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      padding: 0.75rem;
+      background: var(--bg-secondary);
+      border-radius: 0.5rem;
+      margin-bottom: 1rem;
+      transition: background 0.2s ease;
+    }
+
+    .config-toggle:hover {
+      background: var(--border-color);
+    }
+
+    .config-toggle h2 {
+      font-size: 1rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .toggle-icon {
+      font-size: 1.25rem;
+      transition: transform 0.3s ease;
+    }
+
+    .toggle-icon.expanded {
+      transform: rotate(180deg);
+    }
+
+    .config-content {
+      display: none;
+      animation: slideDown 0.3s ease;
+    }
+
+    .config-content.visible {
+      display: block;
+    }
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 0.75rem;
+      border: 2px solid var(--border-color);
+      border-radius: 0.5rem;
+      font-size: 1rem;
+      transition: border-color 0.2s ease;
+    }
+
+    input[type="number"]:focus {
+      outline: none;
+      border-color: var(--primary-color);
+    }
+
+    input[type="number"].error {
+      border-color: var(--danger-color);
+    }
+
+    .error-message {
+      display: none;
+      color: var(--danger-color);
+      font-size: 0.875rem;
+      margin-top: 0.25rem;
+    }
+
+    .error-message.visible {
+      display: block;
+    }
+
+    .btn-group {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .btn-secondary {
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+    }
+
+    .btn-secondary:hover {
+      background: var(--border-color);
+    }
+
+    /* Status indicator */
+    .status-indicator {
+      text-align: center;
+      margin-top: 1rem;
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      min-height: 1.25rem;
+    }
+
+    /* Responsive design */
+    @media (max-width: 767px) {
+      .container {
+        padding: 1.5rem;
+      }
+
+      h1 {
+        font-size: 1.5rem;
+      }
+
+      .timer-text {
+        font-size: 3rem;
+      }
+
+      .timer-display {
+        padding: 2rem 1rem;
+      }
+
+      .btn {
+        padding: 0.875rem 1.5rem;
+        font-size: 1rem;
+      }
+    }
+
+    /* Desktop enhancements */
+    @media (min-width: 768px) {
+      .container {
+        padding: 3rem;
+      }
+
+      .timer-display {
+        padding: 4rem 2rem;
+      }
+    }
+
+    /* High contrast mode support */
+    @media (prefers-contrast: high) {
+      .timer-display {
+        border: 3px solid var(--text-primary);
+      }
+    }
+
+    /* Reduced motion support */
+    @media (prefers-reduced-motion: reduce) {
+      * {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Random Timer</h1>
+
+    <!-- Timer Display -->
+    <div class="timer-display" id="timerDisplay" role="timer" aria-live="polite" aria-atomic="true">
+      <div class="timer-text" id="timerText">--:--</div>
+    </div>
+
+    <!-- Start/Restart Button -->
+    <button class="btn btn-primary" id="startBtn" aria-label="Start random timer">
+      Start Timer
+    </button>
+
+    <div class="status-indicator" id="statusIndicator" aria-live="polite"></div>
+
+    <!-- Configuration Section -->
+    <section class="config-section" aria-labelledby="configTitle">
+      <div class="config-toggle" id="configToggle" role="button" tabindex="0" aria-expanded="false" aria-controls="configContent">
+        <h2 id="configTitle">Settings</h2>
+        <span class="toggle-icon" aria-hidden="true">▼</span>
+      </div>
+
+      <div class="config-content" id="configContent">
+        <form id="configForm" novalidate>
+          <div class="form-group">
+            <label for="minTime">Minimum Time (minutes)</label>
+            <input
+              type="number"
+              id="minTime"
+              min="1"
+              max="60"
+              step="1"
+              required
+              aria-describedby="minTimeError"
+            >
+            <div class="error-message" id="minTimeError" role="alert"></div>
+          </div>
+
+          <div class="form-group">
+            <label for="maxTime">Maximum Time (minutes)</label>
+            <input
+              type="number"
+              id="maxTime"
+              min="1"
+              max="60"
+              step="1"
+              required
+              aria-describedby="maxTimeError"
+            >
+            <div class="error-message" id="maxTimeError" role="alert"></div>
+          </div>
+
+          <div class="btn-group">
+            <button type="submit" class="btn btn-primary">Save</button>
+            <button type="button" class="btn btn-secondary" id="resetBtn">Reset to Defaults</button>
+          </div>
+        </form>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // Timer State Management
+    class TimerState {
+      static STOPPED = 'stopped';
+      static RUNNING = 'running';
+      static COMPLETED = 'completed';
+    }
+
+    // Audio notification using Web Audio API
+    class AudioNotifier {
+      constructor() {
+        this.audioContext = null;
+      }
+
+      // Initialize audio context on user interaction (required by browsers)
+      init() {
+        if (!this.audioContext) {
+          this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        }
+      }
+
+      // Generate completion tone: pleasant three-note sequence
+      playCompletionTone() {
+        this.init();
+
+        const now = this.audioContext.currentTime;
+        const duration = 0.2;
+        const gap = 0.05;
+
+        // Play three ascending notes: C5, E5, G5 (major chord)
+        const frequencies = [523.25, 659.25, 783.99];
+
+        frequencies.forEach((freq, index) => {
+          const oscillator = this.audioContext.createOscillator();
+          const gainNode = this.audioContext.createGain();
+
+          oscillator.connect(gainNode);
+          gainNode.connect(this.audioContext.destination);
+
+          oscillator.frequency.value = freq;
+          oscillator.type = 'sine';
+
+          // Envelope for smoother sound
+          const startTime = now + (index * (duration + gap));
+          gainNode.gain.setValueAtTime(0, startTime);
+          gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.01);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+
+          oscillator.start(startTime);
+          oscillator.stop(startTime + duration);
+        });
+      }
+    }
+
+    // Configuration Manager with localStorage persistence
+    class ConfigManager {
+      static STORAGE_KEY = 'randomTimerConfig';
+      static DEFAULTS = {
+        minTime: 5,
+        maxTime: 13
+      };
+
+      static load() {
+        try {
+          const stored = localStorage.getItem(this.STORAGE_KEY);
+          if (stored) {
+            const config = JSON.parse(stored);
+            return this.validate(config) ? config : this.DEFAULTS;
+          }
+        } catch (e) {
+          console.warn('Failed to load config from localStorage:', e);
+        }
+        return { ...this.DEFAULTS };
+      }
+
+      static save(config) {
+        try {
+          if (this.validate(config)) {
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(config));
+            return true;
+          }
+        } catch (e) {
+          console.warn('Failed to save config to localStorage:', e);
+        }
+        return false;
+      }
+
+      static validate(config) {
+        const min = parseInt(config.minTime);
+        const max = parseInt(config.maxTime);
+
+        return (
+          !isNaN(min) &&
+          !isNaN(max) &&
+          min >= 1 &&
+          max <= 60 &&
+          min < max
+        );
+      }
+    }
+
+    // Random Timer Application
+    class RandomTimer {
+      constructor() {
+        // DOM elements
+        this.timerDisplay = document.getElementById('timerDisplay');
+        this.timerText = document.getElementById('timerText');
+        this.startBtn = document.getElementById('startBtn');
+        this.statusIndicator = document.getElementById('statusIndicator');
+        this.configToggle = document.getElementById('configToggle');
+        this.configContent = document.getElementById('configContent');
+        this.configForm = document.getElementById('configForm');
+        this.minTimeInput = document.getElementById('minTime');
+        this.maxTimeInput = document.getElementById('maxTime');
+        this.resetBtn = document.getElementById('resetBtn');
+
+        // State
+        this.state = TimerState.STOPPED;
+        this.remainingSeconds = 0;
+        this.intervalId = null;
+        this.config = ConfigManager.load();
+
+        // Audio notifier
+        this.audioNotifier = new AudioNotifier();
+
+        // Initialize
+        this.init();
+      }
+
+      init() {
+        this.bindEvents();
+        this.loadConfigUI();
+      }
+
+      bindEvents() {
+        // Start/Restart button
+        this.startBtn.addEventListener('click', () => this.handleStartClick());
+
+        // Config toggle
+        this.configToggle.addEventListener('click', () => this.toggleConfig());
+        this.configToggle.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            this.toggleConfig();
+          }
+        });
+
+        // Config form
+        this.configForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          this.handleConfigSave();
+        });
+
+        // Reset button
+        this.resetBtn.addEventListener('click', () => this.handleConfigReset());
+
+        // Input validation on change
+        this.minTimeInput.addEventListener('input', () => this.validateInputs());
+        this.maxTimeInput.addEventListener('input', () => this.validateInputs());
+      }
+
+      toggleConfig() {
+        const isExpanded = this.configContent.classList.contains('visible');
+        this.configContent.classList.toggle('visible');
+        this.configToggle.querySelector('.toggle-icon').classList.toggle('expanded');
+        this.configToggle.setAttribute('aria-expanded', !isExpanded);
+      }
+
+      loadConfigUI() {
+        this.minTimeInput.value = this.config.minTime;
+        this.maxTimeInput.value = this.config.maxTime;
+      }
+
+      validateInputs() {
+        let isValid = true;
+        const min = parseInt(this.minTimeInput.value);
+        const max = parseInt(this.maxTimeInput.value);
+
+        // Clear previous errors
+        this.clearError(this.minTimeInput);
+        this.clearError(this.maxTimeInput);
+
+        // Validate min time
+        if (isNaN(min) || min < 1 || min > 60) {
+          this.showError(this.minTimeInput, 'Must be between 1 and 60');
+          isValid = false;
+        }
+
+        // Validate max time
+        if (isNaN(max) || max < 1 || max > 60) {
+          this.showError(this.maxTimeInput, 'Must be between 1 and 60');
+          isValid = false;
+        }
+
+        // Validate relationship
+        if (isValid && min >= max) {
+          this.showError(this.maxTimeInput, 'Must be greater than minimum');
+          isValid = false;
+        }
+
+        return isValid;
+      }
+
+      showError(input, message) {
+        input.classList.add('error');
+        const errorId = input.getAttribute('aria-describedby');
+        const errorElement = document.getElementById(errorId);
+        errorElement.textContent = message;
+        errorElement.classList.add('visible');
+      }
+
+      clearError(input) {
+        input.classList.remove('error');
+        const errorId = input.getAttribute('aria-describedby');
+        const errorElement = document.getElementById(errorId);
+        errorElement.textContent = '';
+        errorElement.classList.remove('visible');
+      }
+
+      handleConfigSave() {
+        if (!this.validateInputs()) {
+          return;
+        }
+
+        const newConfig = {
+          minTime: parseInt(this.minTimeInput.value),
+          maxTime: parseInt(this.maxTimeInput.value)
+        };
+
+        if (ConfigManager.save(newConfig)) {
+          this.config = newConfig;
+          this.showStatus('Settings saved successfully');
+        } else {
+          this.showStatus('Failed to save settings');
+        }
+      }
+
+      handleConfigReset() {
+        this.config = { ...ConfigManager.DEFAULTS };
+        ConfigManager.save(this.config);
+        this.loadConfigUI();
+        this.clearError(this.minTimeInput);
+        this.clearError(this.maxTimeInput);
+        this.showStatus('Settings reset to defaults');
+      }
+
+      showStatus(message) {
+        this.statusIndicator.textContent = message;
+        setTimeout(() => {
+          this.statusIndicator.textContent = '';
+        }, 3000);
+      }
+
+      handleStartClick() {
+        // Initialize audio context on first user interaction
+        this.audioNotifier.init();
+
+        this.stopTimer();
+        this.startRandomTimer();
+      }
+
+      startRandomTimer() {
+        // Generate random time in seconds between min and max (inclusive)
+        const minSeconds = this.config.minTime * 60;
+        const maxSeconds = this.config.maxTime * 60;
+        const randomSeconds = Math.floor(Math.random() * (maxSeconds - minSeconds + 1)) + minSeconds;
+
+        this.remainingSeconds = randomSeconds;
+        this.setState(TimerState.RUNNING);
+        this.updateDisplay();
+
+        // Update button text
+        this.startBtn.textContent = 'Restart Timer';
+
+        // Start countdown
+        this.intervalId = setInterval(() => {
+          this.tick();
+        }, 1000);
+      }
+
+      tick() {
+        this.remainingSeconds--;
+        this.updateDisplay();
+
+        if (this.remainingSeconds <= 0) {
+          this.complete();
+        }
+      }
+
+      complete() {
+        this.stopTimer();
+        this.setState(TimerState.COMPLETED);
+        this.audioNotifier.playCompletionTone();
+
+        // Update display and announce completion
+        this.timerText.textContent = '00:00';
+        this.showStatus('Timer completed!');
+      }
+
+      stopTimer() {
+        if (this.intervalId) {
+          clearInterval(this.intervalId);
+          this.intervalId = null;
+        }
+      }
+
+      setState(newState) {
+        this.state = newState;
+
+        // Update display classes
+        this.timerDisplay.classList.remove('running', 'completed');
+        if (newState === TimerState.RUNNING) {
+          this.timerDisplay.classList.add('running');
+        } else if (newState === TimerState.COMPLETED) {
+          this.timerDisplay.classList.add('completed');
+        }
+      }
+
+      updateDisplay() {
+        const minutes = Math.floor(this.remainingSeconds / 60);
+        const seconds = this.remainingSeconds % 60;
+
+        // Format with leading zeros
+        const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+        this.timerText.textContent = formattedTime;
+      }
+    }
+
+    // Initialize app when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        new RandomTimer();
+      });
+    } else {
+      new RandomTimer();
+    }
+  </script>
+</body>
+</html>
