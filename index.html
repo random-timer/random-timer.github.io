@@ -409,10 +409,20 @@
 
       // Start looping alarm sound with classic beep-beep pattern
       startAlarm() {
+        console.log('startAlarm called');
+
         // Stop any existing alarm first
         this.stopAlarm();
 
         this.init();
+
+        // Resume audio context if suspended (required by browsers)
+        if (this.audioContext.state === 'suspended') {
+          console.log('AudioContext suspended, resuming...');
+          this.audioContext.resume();
+        }
+        console.log('AudioContext state:', this.audioContext.state);
+
         this.isPlaying = true;
 
         // Create persistent oscillator and gain node
@@ -431,6 +441,7 @@
 
         // Start the oscillator
         this.oscillator.start();
+        console.log('Oscillator started');
 
         // Create the beep-beep pattern using setInterval
         // Pattern: beep (0.2s) -> silence (0.1s) -> beep (0.2s) -> silence (0.5s) -> repeat
@@ -439,7 +450,10 @@
 
         const playBeepPattern = () => {
           // Validate resources still exist
-          if (!this.isPlaying || !this.oscillator || !this.gainNode) return;
+          if (!this.isPlaying || !this.oscillator || !this.gainNode) {
+            console.log('playBeepPattern: resources missing, stopping');
+            return;
+          }
 
           const currentTime = this.audioContext.currentTime;
 
@@ -447,6 +461,7 @@
             case 0: // First beep
             case 2: // Second beep
               this.gainNode.gain.setValueAtTime(0.25, currentTime);
+              console.log('BEEP (gain=0.25)');
               break;
             case 1: // First gap
             case 3: // Long gap
