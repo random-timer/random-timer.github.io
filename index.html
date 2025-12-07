@@ -134,6 +134,17 @@
       background: var(--primary-hover);
     }
 
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .btn:disabled:hover {
+      transform: none;
+      box-shadow: var(--shadow);
+    }
+
     /* Configuration section */
     .config-section {
       margin-top: 2rem;
@@ -326,7 +337,7 @@
     <div class="status-indicator" id="statusIndicator" aria-live="polite"></div>
 
     <!-- Configuration Section -->
-    <section class="config-section" aria-labelledby="configTitle">
+    <!-- <section class="config-section" aria-labelledby="configTitle">
       <div class="config-toggle" id="configToggle" role="button" tabindex="0" aria-expanded="false" aria-controls="configContent">
         <h2 id="configTitle">Settings</h2>
         <span class="toggle-icon" aria-hidden="true">▼</span>
@@ -368,7 +379,7 @@
           </div>
         </form>
       </div>
-    </section>
+    </section> -->
   </div>
 
   <script>
@@ -383,6 +394,10 @@
     class AudioNotifier {
       constructor() {
         this.audioContext = null;
+        this.oscillator = null;
+        this.gainNode = null;
+        this.isPlaying = false;
+        this.beepIntervalId = null;
       }
 
       // Initialize audio context on user interaction (required by browsers)
@@ -392,44 +407,100 @@
         }
       }
 
-      // Generate completion tone: pleasant three-note sequence
-      playCompletionTone() {
+      // Start looping alarm sound with classic beep-beep pattern
+      startAlarm() {
+        // Stop any existing alarm first
+        this.stopAlarm();
+
         this.init();
+        this.isPlaying = true;
 
-        const now = this.audioContext.currentTime;
-        const duration = 0.2;
-        const gap = 0.05;
+        // Create persistent oscillator and gain node
+        this.oscillator = this.audioContext.createOscillator();
+        this.gainNode = this.audioContext.createGain();
 
-        // Play three ascending notes: C5, E5, G5 (major chord)
-        const frequencies = [523.25, 659.25, 783.99];
+        this.oscillator.connect(this.gainNode);
+        this.gainNode.connect(this.audioContext.destination);
 
-        frequencies.forEach((freq, index) => {
-          const oscillator = this.audioContext.createOscillator();
-          const gainNode = this.audioContext.createGain();
+        // Set alarm frequency (800Hz - attention-grabbing but not harsh)
+        this.oscillator.frequency.value = 800;
+        this.oscillator.type = 'sine';
 
-          oscillator.connect(gainNode);
-          gainNode.connect(this.audioContext.destination);
+        // Start with gain at 0 (silent)
+        this.gainNode.gain.value = 0;
 
-          oscillator.frequency.value = freq;
-          oscillator.type = 'sine';
+        // Start the oscillator
+        this.oscillator.start();
 
-          // Envelope for smoother sound
-          const startTime = now + (index * (duration + gap));
-          gainNode.gain.setValueAtTime(0, startTime);
-          gainNode.gain.linearRampToValueAtTime(0.3, startTime + 0.01);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, startTime + duration);
+        // Create the beep-beep pattern using setInterval
+        // Pattern: beep (0.2s) -> silence (0.1s) -> beep (0.2s) -> silence (0.5s) -> repeat
+        let beepState = 0; // 0: first beep, 1: first gap, 2: second beep, 3: long gap
+        const timings = [200, 100, 200, 500]; // milliseconds for each state
 
-          oscillator.start(startTime);
-          oscillator.stop(startTime + duration);
-        });
+        const playBeepPattern = () => {
+          // Validate resources still exist
+          if (!this.isPlaying || !this.oscillator || !this.gainNode) return;
+
+          const currentTime = this.audioContext.currentTime;
+
+          switch (beepState) {
+            case 0: // First beep
+            case 2: // Second beep
+              this.gainNode.gain.setValueAtTime(0.25, currentTime);
+              break;
+            case 1: // First gap
+            case 3: // Long gap
+              this.gainNode.gain.setValueAtTime(0, currentTime);
+              break;
+          }
+
+          // Get timing for current state, then advance to next
+          const currentTiming = timings[beepState];
+          beepState = (beepState + 1) % 4;
+          this.beepIntervalId = setTimeout(playBeepPattern, currentTiming);
+        };
+
+        // Start the pattern
+        playBeepPattern();
+      }
+
+      // Stop the alarm sound
+      stopAlarm() {
+        if (!this.isPlaying) return;
+
+        this.isPlaying = false;
+
+        // Clear the interval
+        if (this.beepIntervalId) {
+          clearTimeout(this.beepIntervalId);
+          this.beepIntervalId = null;
+        }
+
+        // Stop and disconnect the oscillator
+        if (this.oscillator) {
+          try {
+            this.oscillator.stop();
+          } catch (e) {
+            // Oscillator may already be stopped, ignore error
+          }
+          this.oscillator.disconnect();
+          this.oscillator = null;
+        }
+
+        // Disconnect gain node
+        if (this.gainNode) {
+          this.gainNode.disconnect();
+          this.gainNode = null;
+        }
       }
     }
 
     // Configuration Manager with localStorage persistence
     class ConfigManager {
       static STORAGE_KEY = 'randomTimerConfig';
+      static TIMER_STATE_KEY = 'randomTimerState';
       static DEFAULTS = {
-        minTime: 5,
+        minTime: 7,
         maxTime: 13
       };
 
@@ -470,6 +541,38 @@
           min < max
         );
       }
+
+      static saveTimerState(endTime) {
+        try {
+          localStorage.setItem(this.TIMER_STATE_KEY, JSON.stringify({ endTime }));
+        } catch (e) {
+          console.warn('Failed to save timer state:', e);
+        }
+      }
+
+      static loadTimerState() {
+        try {
+          const stored = localStorage.getItem(this.TIMER_STATE_KEY);
+          if (stored) {
+            const state = JSON.parse(stored);
+            // Validate endTime is a valid timestamp
+            if (state && typeof state.endTime === 'number' && state.endTime > 0) {
+              return state;
+            }
+          }
+        } catch (e) {
+          console.warn('Failed to load timer state:', e);
+        }
+        return null;
+      }
+
+      static clearTimerState() {
+        try {
+          localStorage.removeItem(this.TIMER_STATE_KEY);
+        } catch (e) {
+          console.warn('Failed to clear timer state:', e);
+        }
+      }
     }
 
     // Random Timer Application
@@ -480,16 +583,17 @@
         this.timerText = document.getElementById('timerText');
         this.startBtn = document.getElementById('startBtn');
         this.statusIndicator = document.getElementById('statusIndicator');
-        this.configToggle = document.getElementById('configToggle');
+        /* this.configToggle = document.getElementById('configToggle');
         this.configContent = document.getElementById('configContent');
         this.configForm = document.getElementById('configForm');
         this.minTimeInput = document.getElementById('minTime');
         this.maxTimeInput = document.getElementById('maxTime');
-        this.resetBtn = document.getElementById('resetBtn');
+        this.resetBtn = document.getElementById('resetBtn'); */
 
         // State
         this.state = TimerState.STOPPED;
         this.remainingSeconds = 0;
+        this.endTime = null;
         this.intervalId = null;
         this.config = ConfigManager.load();
 
@@ -502,14 +606,26 @@
 
       init() {
         this.bindEvents();
-        this.loadConfigUI();
+        /* this.loadConfigUI(); */
+
+        // Check for saved timer state (in case of page refresh)
+        const savedState = ConfigManager.loadTimerState();
+        if (savedState && savedState.endTime) {
+          // Validate timestamp is not unreasonably far in the future (max 1 hour)
+          const maxValidTime = Date.now() + (60 * 60 * 1000);
+          if (savedState.endTime <= maxValidTime) {
+            this.resumeTimer(savedState.endTime);
+          } else {
+            ConfigManager.clearTimerState();
+          }
+        }
       }
 
       bindEvents() {
         // Start/Restart button
         this.startBtn.addEventListener('click', () => this.handleStartClick());
 
-        // Config toggle
+        /* // Config toggle
         this.configToggle.addEventListener('click', () => this.toggleConfig());
         this.configToggle.addEventListener('keydown', (e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -529,10 +645,10 @@
 
         // Input validation on change
         this.minTimeInput.addEventListener('input', () => this.validateInputs());
-        this.maxTimeInput.addEventListener('input', () => this.validateInputs());
+        this.maxTimeInput.addEventListener('input', () => this.validateInputs()); */
       }
 
-      toggleConfig() {
+      /* toggleConfig() {
         const isExpanded = this.configContent.classList.contains('visible');
         this.configContent.classList.toggle('visible');
         this.configToggle.querySelector('.toggle-icon').classList.toggle('expanded');
@@ -615,7 +731,7 @@
         this.clearError(this.minTimeInput);
         this.clearError(this.maxTimeInput);
         this.showStatus('Settings reset to defaults');
-      }
+      } */
 
       showStatus(message) {
         this.statusIndicator.textContent = message;
@@ -628,6 +744,9 @@
         // Initialize audio context on first user interaction
         this.audioNotifier.init();
 
+        // Stop any playing alarm
+        this.audioNotifier.stopAlarm();
+
         this.stopTimer();
         this.startRandomTimer();
       }
@@ -638,12 +757,17 @@
         const maxSeconds = this.config.maxTime * 60;
         const randomSeconds = Math.floor(Math.random() * (maxSeconds - minSeconds + 1)) + minSeconds;
 
+        // Save end time to localStorage for persistence across refreshes
+        this.endTime = Date.now() + (randomSeconds * 1000);
+        ConfigManager.saveTimerState(this.endTime);
+
         this.remainingSeconds = randomSeconds;
         this.setState(TimerState.RUNNING);
         this.updateDisplay();
 
         // Update button text
         this.startBtn.textContent = 'Restart Timer';
+        this.startBtn.disabled = true;
 
         // Start countdown
         this.intervalId = setInterval(() => {
@@ -652,7 +776,8 @@
       }
 
       tick() {
-        this.remainingSeconds--;
+        const now = Date.now();
+        this.remainingSeconds = Math.max(0, Math.ceil((this.endTime - now) / 1000));
         this.updateDisplay();
 
         if (this.remainingSeconds <= 0) {
@@ -662,12 +787,14 @@
 
       complete() {
         this.stopTimer();
+        ConfigManager.clearTimerState();
         this.setState(TimerState.COMPLETED);
-        this.audioNotifier.playCompletionTone();
+        this.audioNotifier.startAlarm();
 
         // Update display and announce completion
         this.timerText.textContent = '00:00';
         this.showStatus('Timer completed!');
+        this.startBtn.disabled = false;
       }
 
       stopTimer() {
@@ -696,6 +823,32 @@
         // Format with leading zeros
         const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
         this.timerText.textContent = formattedTime;
+      }
+
+      resumeTimer(endTime) {
+        const now = Date.now();
+        const remainingMs = endTime - now;
+
+        if (remainingMs <= 0) {
+          // Timer already expired while page was closed
+          ConfigManager.clearTimerState();
+          this.complete();
+          return;
+        }
+
+        this.endTime = endTime;
+        this.remainingSeconds = Math.ceil(remainingMs / 1000);
+        this.setState(TimerState.RUNNING);
+        this.updateDisplay();
+
+        // Update button
+        this.startBtn.textContent = 'Restart Timer';
+        this.startBtn.disabled = true;
+
+        // Start countdown
+        this.intervalId = setInterval(() => {
+          this.tick();
+        }, 1000);
       }
     }
 
